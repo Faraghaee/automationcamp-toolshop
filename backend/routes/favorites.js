@@ -30,7 +30,7 @@ module.exports = (db) => {
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     const exists = db.get('favorites').find({ user_id: req.user.id, product_id }).value();
-    if (exists) return res.status(422).json({ message: 'Already in favorites' });
+    if (exists) return res.status(409).json({ message: 'Already in favorites' });
 
     const fav = { id: `fav-${uuidv4()}`, user_id: req.user.id, product_id, created_at: new Date().toISOString() };
     db.get('favorites').push(fav).write();

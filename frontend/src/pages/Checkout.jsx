@@ -7,7 +7,7 @@ import client from '../api/client';
 const STEPS = ['Cart', 'Address', 'Payment', 'Confirm'];
 
 export default function Checkout() {
-  const { cart, cartId, clearCart } = useCart();
+  const { cart, cartId, clearCart, updateQuantity, removeFromCart } = useCart();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -27,8 +27,34 @@ export default function Checkout() {
   });
 
   const [payment, setPayment] = useState({ method: 'credit_card', details: {} });
+  const [updatingProductId, setUpdatingProductId] = useState(null);
 
   const items = cart?.items || [];
+
+  const handleQuantityChange = async (productId, newQuantity, maxStock) => {
+    const quantity = Math.max(1, Math.min(newQuantity, maxStock ?? newQuantity));
+    setUpdatingProductId(productId);
+    setError('');
+    try {
+      await updateQuantity(productId, quantity);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update quantity');
+    } finally {
+      setUpdatingProductId(null);
+    }
+  };
+
+  const handleRemoveItem = async (productId) => {
+    setUpdatingProductId(productId);
+    setError('');
+    try {
+      await removeFromCart(productId);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to remove item');
+    } finally {
+      setUpdatingProductId(null);
+    }
+  };
   const subtotal = cart?.subtotal || 0;
 
   const handleAddressSubmit = (e) => {
@@ -149,18 +175,50 @@ export default function Checkout() {
             <div className="card p-6" data-id="cart-step">
               <h2 className="text-lg font-semibold mb-4" data-id="cart-step-title">Cart Items</h2>
               <div className="space-y-4" data-id="cart-items-list">
-                {items.map(item => (
+                {items.map(item => {
+                  const isUpdating = updatingProductId === item.product_id;
+                  const maxStock = item.product?.stock ?? item.quantity;
+                  return (
                   <div key={item.id} className="flex items-center gap-4 py-3 border-b last:border-b-0" data-id="cart-item" data-testid="cart-item">
                     <img src={item.product?.image || 'https://placehold.co/80x60/e5e7eb/6b7280?text=Tool'}
                       alt={item.product?.name} className="w-16 h-12 object-cover rounded" onError={(e) => { e.target.src = 'https://placehold.co/80x60/e5e7eb/6b7280?text=Tool'; }}
                       data-id="cart-item-image" />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm" data-id="cart-item-name">{item.product?.name}</p>
-                      <p className="text-xs text-gray-500" data-id="cart-item-qty">Qty: {item.quantity}</p>
+                      <div className="flex items-center border border-gray-300 rounded-md mt-1 w-fit" data-id="cart-quantity-selector">
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(item.product_id, item.quantity - 1, maxStock)}
+                          disabled={isUpdating || item.quantity <= 1}
+                          className="px-2 py-1 text-gray-600 hover:bg-gray-50 rounded-l-md disabled:opacity-50"
+                          data-id="btn-cart-qty-decrease"
+                          data-testid="cart-qty-decrease"
+                        >−</button>
+                        <span className="px-3 py-1 text-sm font-medium border-x border-gray-300" data-id="cart-item-qty" data-testid="cart-quantity">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(item.product_id, item.quantity + 1, maxStock)}
+                          disabled={isUpdating || item.quantity >= maxStock}
+                          className="px-2 py-1 text-gray-600 hover:bg-gray-50 rounded-r-md disabled:opacity-50"
+                          data-id="btn-cart-qty-increase"
+                          data-testid="cart-qty-increase"
+                        >+</button>
+                      </div>
                     </div>
-                    <p className="font-semibold text-primary-600" data-id="cart-item-total">${item.line_total?.toFixed(2)}</p>
+                    <p className="font-semibold text-primary-600 shrink-0" data-id="cart-item-total">${item.line_total?.toFixed(2)}</p>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(item.product_id)}
+                      disabled={isUpdating}
+                      className="text-gray-400 hover:text-red-600 text-xl leading-none disabled:opacity-50 shrink-0"
+                      title="Remove item"
+                      aria-label="Remove item"
+                      data-id="btn-remove-cart-item"
+                      data-testid="cart-remove"
+                    >×</button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
               {!isAuthenticated && (
                 <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700" data-id="guest-notice">

@@ -1,8 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import client from '../api/client';
 import ProductCard from '../components/ProductCard';
 import Pagination from '../components/Pagination';
+
+const PAGE_SIZE = 9;
+
+function getCategoryIdsWithDescendants(categoryId, categories) {
+  const ids = new Set([categoryId]);
+  const queue = [categoryId];
+  while (queue.length) {
+    const parentId = queue.shift();
+    categories
+      .filter(c => c.parent_id === parentId)
+      .forEach(c => {
+        ids.add(c.id);
+        queue.push(c.id);
+      });
+  }
+  return ids;
+}
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,27 +45,53 @@ export default function Home() {
     client.get('/categories').then(r => setCategories(r.data)).catch(() => {});
   }, []);
 
+  const categoryFilterIds = useMemo(() => {
+    if (!category_id || categories.length === 0) return null;
+    return getCategoryIdsWithDescendants(category_id, categories);
+  }, [category_id, categories]);
+
   const fetchProducts = useCallback(async () => {
+    if (category_id && categories.length === 0) return;
+
     setLoading(true);
     try {
-      const params = { _page, _limit: 9, _sort, _order };
+      const params = { _sort, _order };
       if (q) params.q = q;
-      if (category_id) params.category_id = category_id;
       if (brand_id) params.brand_id = brand_id;
       if (is_rental) params.is_rental = is_rental;
       if (min_price) params.min_price = min_price;
       if (max_price) params.max_price = max_price;
 
-      const { data } = await client.get('/products', { params });
-      setProducts(data.data);
-      setTotal(data.total);
-      setLastPage(data.last_page);
+      const needsClientCategoryFilter =
+        categoryFilterIds && categoryFilterIds.size > 1;
+
+      if (needsClientCategoryFilter) {
+        const { data } = await client.get('/products', {
+          params: { ...params, _page: 1, _limit: 500 },
+        });
+        const filtered = data.data.filter(p => categoryFilterIds.has(p.category_id));
+        const total = filtered.length;
+        const start = (_page - 1) * PAGE_SIZE;
+        setProducts(filtered.slice(start, start + PAGE_SIZE));
+        setTotal(total);
+        setLastPage(Math.max(1, Math.ceil(total / PAGE_SIZE)));
+      } else {
+        if (category_id) params.category_id = category_id;
+        const { data } = await client.get('/products', {
+          params: { ...params, _page, _limit: PAGE_SIZE },
+        });
+        setProducts(data.data);
+        setTotal(data.total);
+        setLastPage(data.last_page);
+      }
     } catch {
       setProducts([]);
+      setTotal(0);
+      setLastPage(1);
     } finally {
       setLoading(false);
     }
-  }, [q, category_id, brand_id, is_rental, min_price, max_price, _sort, _order, _page]);
+  }, [q, category_id, brand_id, is_rental, min_price, max_price, _sort, _order, _page, categories.length, categoryFilterIds]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 

@@ -1,6 +1,6 @@
 {
   "name": "toolshop-port",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Toolshop - E-commerce app for software testing practice (React + Express + JSON Server)",
   "scripts": {
     "start": "concurrently --names \"BACKEND,FRONTEND\" --prefix-colors \"cyan,magenta\" \"npm run backend\" \"npm run frontend\"",

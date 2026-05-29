@@ -18,6 +18,21 @@ module.exports = (db) => {
     };
   }
 
+  function getCategoryIdsWithDescendants(categoryId, categories) {
+    const ids = new Set([categoryId]);
+    const queue = [categoryId];
+    while (queue.length) {
+      const parentId = queue.shift();
+      categories
+        .filter(c => c.parent_id === parentId)
+        .forEach(c => {
+          ids.add(c.id);
+          queue.push(c.id);
+        });
+    }
+    return ids;
+  }
+
   router.get('/', (req, res) => {
     const { q, category_id, brand_id, is_rental, min_price, max_price, in_stock, _page = 1, _limit = 9, _sort = 'name', _order = 'asc' } = req.query;
 
@@ -27,7 +42,11 @@ module.exports = (db) => {
       const query = q.toLowerCase();
       products = products.filter(p => p.name.toLowerCase().includes(query) || p.description.toLowerCase().includes(query));
     }
-    if (category_id) products = products.filter(p => p.category_id === category_id);
+    if (category_id) {
+      const categories = db.get('categories').value();
+      const allowedCategoryIds = getCategoryIdsWithDescendants(category_id, categories);
+      products = products.filter(p => allowedCategoryIds.has(p.category_id));
+    }
     if (brand_id) products = products.filter(p => p.brand_id === brand_id);
     if (is_rental !== undefined) products = products.filter(p => p.is_rental === (is_rental === 'true'));
     if (min_price) products = products.filter(p => p.price >= parseFloat(min_price));
