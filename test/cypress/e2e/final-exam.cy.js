@@ -1,14 +1,13 @@
 describe('Final exam  ', () => {
     it('tamrin1', () => {
         cy.visit('http://localhost:5173/');
-        cy.wait(200);
         cy.get('[data-testid="nav-login"]').click();
 
         //login
         cy.get("input[data-id=input-email]").type("customer2@automationcamp.org");
         cy.get("input[data-id=input-password]").type("welcome01");
-        cy.wait(200);
         cy.get('button[data-id=btn-login]').click();
+        cy.url().should('not.include', '/login');
 
     })
 
@@ -25,7 +24,7 @@ describe('Final exam  ', () => {
         cy.wait('@loginRequest').then((interception) => {
             expect(interception.response.statusCode).to.eq(423);
             cy.contains('Account is locked due to too many failed login attempts.').should('be.visible');
-            // cy.contains('Invalid email or password').should('be.visible');
+
 
         });
     })
@@ -41,11 +40,9 @@ describe('Final exam  ', () => {
         cy.get("input[data-id=input-password-confirm]").type("12345678");
         cy.get("input[data-id=input-phone]").type("09384973211");
         cy.get("input[data-id=input-dob]").type("1991-06-25");
-        // بعد از پر کردن فیلد ها و زدن دکمه سابمیت
-        cy.wait(200);
+
         cy.get('[data-testid="register-submit"]').click();
-        // ورود به صفحه بعد و وارد کردن اطلاعات تکمیلی
-        cy.wait(300);
+
         cy.get('[data-testid="street"]').type("Hengam");
         cy.get('[data-testid="city"]').type("Tehran");
         cy.get('[data-testid="state"]').type("57");
@@ -57,17 +54,12 @@ describe('Final exam  ', () => {
 
     it('tamrin4', () => {
 
-        //4.should display at least 9 products with name and price
-        // 1. Navigate to home page
         cy.visit('http://localhost:5173/');
 
-        // 2. Verify product grid is visible and has at least 9 items
-        // فرض می‌کنیم هر محصول یک المنت با data-id="product-card" است
         cy.get('[data-id=product-card]')
             .should('be.visible')
             .and('have.length.at.least', 9);
 
-        // 3. Verify each product has a name and price
         cy.get('[data-id=product-card]').each(($card) => {
             // چک کردن وجود نام محصول در داخل هر کارت
             cy.wrap($card).find('[data-id=product-name]').should('not.be.empty');
@@ -79,18 +71,16 @@ describe('Final exam  ', () => {
 
     it('tamrin5', () => {
         cy.visit("http://localhost:5173/")
-        cy.wait(1500);
         //جستجو
         cy.get('[data-id="search-input"]').type('hammer')
-        cy.wait(800);
+        cy.get('[data-testid="product-card"]').should('contain.text', 'Hammer');
         // برروی ذره بین کلیک میکند
         cy.get('[data-id="search-btn"]').click();
-        cy.wait(1000);
         cy.scrollTo(0, 400);
     })
 
     it('tamrin6', () => {
-        //Scenario 6: Filter products by category (Power Tools)
+
         cy.viewport(1280, 800);
         cy.visit('http://localhost:5173/');
 
@@ -102,18 +92,33 @@ describe('Final exam  ', () => {
 
         cy.get('[data-testid="product-card"]').should('exist'); // حداقل یک محصول باید نمایش داده شود
 
-        // ایمیل زده شده  چک بشه
     });
 
     it('tamrin7', () => {
-        cy.visit("http://localhost:5173/")
-        cy.scrollTo(0, 20);
-        // انتخاب محصول با قیمت از کم به زیاد
-        cy.get('[data-testid="sort-select"]').select('price-asc');
-    })
+
+        cy.visit('http://localhost:5173/');
+
+        cy.get('[data-testid="sort-select"]')
+            .select('Price Low-High');
+
+        cy.get('[data-testid="product-price"]', { timeout: 10000 })
+            .should('have.length.greaterThan', 0)
+            .then(($prices) => {
+
+                const prices = [...$prices].map(el =>
+                    Number(el.innerText.replace(/[^0-9.]/g, ''))
+                );
+
+                for (let i = 1; i < prices.length; i++) {
+                    expect(prices[i]).to.be.at.least(prices[i - 1]);
+                }
+
+            });
+
+    });
 
     it('tamrin8', () => {
-        //should add one product to cart and update badge
+
         cy.visit('http://localhost:5173/');
 
         // کلیک بر روی محصول
@@ -130,7 +135,7 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin9', () => {
-        // should calculate total price correctly when quantity is 3
+
         cy.visit('http://localhost:5173/');
         cy.contains('Claw Hammer 16oz').click();
         cy.contains('Add to Cart').click();
@@ -163,54 +168,36 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin10', () => {
-        //should remove the only product and show empty cart
-        cy.visit('http://localhost:5173/');
-        cy.contains('Claw Hammer 16oz').click();
-        cy.contains('Add to Cart').click();
 
         cy.visit('http://localhost:5173/');
-        cy.contains('Adjustable Wrench 10"').click();
+
+        cy.contains('Claw Hammer 16oz').click();
         cy.contains('Add to Cart').click();
 
         cy.visit('http://localhost:5173/checkout');
 
-        // ذخیره تعداد badge قبل از حذف
-        cy.get('[data-testid="nav-cart"] > .absolute')
-            .invoke('text')
-            .then((badgeText) => {
-                const initialCount = parseInt(badgeText);
+        cy.get('[data-testid="cart-remove"]')
+            .first()
+            .click();
 
-                cy.get('[data-testid=cart-remove]').click();
-
-                if (initialCount === 1) {
-                    // اگر فقط یک محصول بود → سبد خالی می‌شود
-                    cy.get('[data-testid="cart-badge"]').should('not.exist');
-                    cy.contains(/cart is empty|no items/i).should('be.visible');
-                } else {
-                    // اگر بیش از یک محصول بود → badge کاهش می‌یابد
-                    cy.get('[data-testid="cart-badge"]')
-                        .should('have.text', String(initialCount - 1));
-                }
-
-
-                // ایمیل زده شده 
-            });
+        // بررسی خالی شدن 
+        cy.contains(/cart is empty|no items/i)
+            .should('be.visible');
     });
 
     it('tamrin11', () => {
 
-        //should allow logged-in user to add product to favorites
         cy.login("customer2@automationcamp.org", "welcome01");
 
         cy.visit('http://localhost:5173/product/prod-9');
         cy.get('[data-id="btn-toggle-favorite"]').click();
-
         cy.contains("Favorites").click();
         cy.get('[data-testid="favorite-item"]').should('contain', 'Adjustable Wrench 10"');
+
     });
 
     it('tamrin12', () => {
-        //should allow guest to submit contact form successfully
+        
         cy.visit('http://localhost:5173/contact');
 
         // پر کردن فرم
@@ -228,9 +215,8 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin13', () => {
-        //should display correct user profile details
+      
         cy.login('customer2@automationcamp.org', 'welcome01');
-
         cy.visit('http://localhost:5173/account/profile');
 
         // لیست فیلدهایی که باید چک شوند
@@ -238,10 +224,12 @@ describe('Final exam  ', () => {
         profileFields.forEach((field) => {
             cy.get(`[data-testid="${field}"]`).should('be.visible');
         });
+
+
     });
 
     it('tamrin14', () => {
-        //should allow admin to add a brand
+        
         cy.login('admin@automationcamp.org', 'welcome01');
 
         cy.visit('http://localhost:5173/admin/brands');
@@ -257,7 +245,7 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin15', () => {
-        //Add new product
+       
         const product = {
             name: 'Test Product',
             description: 'This is a test product created by Cypress.',
@@ -283,7 +271,6 @@ describe('Final exam  ', () => {
 
         cy.get('[data-id="product-name"]').should('be.visible');
 
-        // تابعی برای جستجوی محصول در صفحات مختلف
         const findProductInPages = (productName) => {
             cy.get('body').then(($body) => {
 
@@ -297,7 +284,6 @@ describe('Final exam  ', () => {
                 nextPageButton.click();
                 cy.wait(1000);
 
-                // بصورت بازگشتی جستجو می‌کنیم
                 findProductInPages(productName);
             });
         };
@@ -306,7 +292,7 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin16', () => {
-        //should update order status to SHIPPED
+       
         cy.login('admin@automationcamp.org', 'welcome01');
 
         cy.visit('http://localhost:5173/admin/orders');
@@ -323,7 +309,7 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin17', () => {
-        //should disable a user and prevent login
+        
         cy.login('admin@automationcamp.org', 'welcome01');
 
         cy.visit('http://localhost:5173/admin/users');
@@ -356,16 +342,12 @@ describe('Final exam  ', () => {
         cy.contains(/disabled|inactive|not allowed|blocked/i).should('be.visible');
     });
 
-
     it('tamrin18', () => {
-        //should get all products and verify structure
+        
         cy.getProducts(null).then((res) => {
             expect(res.status).to.eq(200);
             expect(res.body).to.have.property('data');
             expect(res.body.data).to.be.an('array');
-
-            // این خط JSON کامل را در پنل تست Cypress نمایش می‌دهد
-            cy.log('Products Response:', JSON.stringify(res.body, null, 2));// باید حذف بشه
 
             res.body.data.forEach((product) => {
                 expect(product).to.have.property('id');
@@ -376,9 +358,9 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin19', () => {
-         cy.loginViaApi('customer@automationcamp.org', 'welcome01');
-        // Create a product
-        cy.get('@adminToken').then((token) => {
+        cy.loginViaApi('admin@automationcamp.org', 'welcome01');
+       
+        cy.get('@authToken').then((token) => {
             expect(token, 'Admin token should not be null').to.be.a('string').and.not.be.null;
 
             // اضافه کردن محصول
@@ -387,10 +369,12 @@ describe('Final exam  ', () => {
             });
         });
         cy.log('Farzaneh product add list products.');
+        
     });
 
     it('tamrin20', () => {
-        //Update product
+        cy.loginViaApi('admin@automationcamp.org', 'welcome01');
+       
         const updateData = { name: 'Updated Farzaneh Aghaee Product ', price: 200 };
 
         // با محصول id: prod-2
@@ -406,15 +390,16 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin21', () => {
-        //delete a product
-        cy.get('@adminToken').then((token) => {
+        cy.loginViaApi('admin@automationcamp.org', 'welcome01');
+       
+        cy.get('@authToken').then((token) => {
 
-            cy.deleteProduct(12).then((res) => {
+            cy.deleteProduct(1).then((res) => {
                 expect(res.status).to.be.oneOf([200, 204]);
             });
 
             // چک کردن محصول حذف شده
-            cy.getProducts(12).then((res) => {
+            cy.getProducts(1).then((res) => {
                 expect(res.status).to.eq(404);
                 expect(res.body.message).to.eq('Product not found');
             });
@@ -422,7 +407,7 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin22', () => {
-        //user login
+       
         cy.loginViaApi('customer@automationcamp.org', 'welcome01').then((res) => {
 
             // بررسی تایید  
@@ -435,11 +420,11 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin23', () => {
-        //should create a new brand successfully
-        const newBrand = { name: 'New Tech Brand' };
+        cy.loginViaApi('admin@automationcamp.org', 'welcome01');
+        
+        const newBrand = { name: 'New Tech Brand1' };
 
-        cy.get('@adminToken').then((token) => {
-
+        cy.get('@authToken').then((token) => {
             cy.request({
                 method: 'POST',
                 url: 'http://localhost:3001/api/brands',
@@ -448,6 +433,7 @@ describe('Final exam  ', () => {
                 },
                 body: newBrand
             }).then((res) => {
+                cy.log(JSON.stringify(res.body));
                 // مرحله ۳: بررسی پاسخ (Status 201)
                 expect(res.status).to.eq(201);
                 expect(res.body).to.have.property('id');
@@ -457,20 +443,18 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin24', () => {
-        //should create a cart and add a product to it
-        const productId = 'prod-20'; // محصولی که می‌خواهیم اضافه کنیم
+     
+        const productId = 'prod-20'; 
         const quantity = 2;
 
-        // مرحله ۱: ایجاد سبد خرید جدید
         cy.request({
             method: 'POST',
             url: 'http://localhost:3001/api/carts',
-            body: {} // معمولاً بدنه خالی یا با اطلاعات کاربر است
+            body: {} 
         }).then((cartRes) => {
             expect(cartRes.status).to.be.oneOf([200, 201]);
-            const cartId = cartRes.body.id; // گرفتن ID سبد خرید ساخته شده
+            const cartId = cartRes.body.id; 
 
-            // مرحله ۲: افزودن محصول به سبد خرید با استفاده از ID ساخته شده
             cy.request({
                 method: 'POST',
                 url: `http://localhost:3001/api/carts/${cartId}`,
@@ -481,11 +465,9 @@ describe('Final exam  ', () => {
             }).then((addRes) => {
                 expect(addRes.status).to.be.oneOf([200, 201]);
 
-                // مرحله ۳: دریافت سبد خرید و تایید وجود محصول
                 cy.request('GET', `http://localhost:3001/api/carts/${cartId}`).then((getRes) => {
                     expect(getRes.status).to.eq(200);
 
-                    // بررسی اینکه محصول در لیست items سبد خرید هست یا خیر
                     const cartItems = getRes.body.items;
                     const foundItem = cartItems.find(item => item.product_id === productId);
 
@@ -497,153 +479,158 @@ describe('Final exam  ', () => {
     });
 
     it('tamrin25', () => {
-        //should create an invoice for an authenticated customer
-        let token;
+
         let cartId;
         let productId;
 
-        // 1) Login as customer
+        cy.loginViaApi('customer3@automationcamp.org', 'pass123');
 
-        //cy.loginViaApi('customer3@automationcamp.org', 'pass123');
+        cy.get('@authToken').then((token) => {
 
-        cy.request({
-            method: 'POST',
-            url: 'http://localhost:3001/api/users/login',
-            body: {
-                email: 'customer3@automationcamp.org',
-                password: 'pass123'
-            }
-        }).then((loginRes) => {
-            expect(loginRes.status).to.eq(200);
-            token = loginRes.body.access_token;
-
-            // 2) Get a valid product
-            return cy.request({
+            cy.request({
                 method: 'GET',
                 url: 'http://localhost:3001/api/products'
-            });
-        }).then((productsRes) => {
-            expect(productsRes.status).to.eq(200);
-            productId = productsRes.body.data[0].id;
+            }).then((productsRes) => {
 
-            // 3) Create cart
-            return cy.request({
-                method: 'POST',
-                url: 'http://localhost:3001/api/carts',
-            });
-        }).then((cartRes) => {
-            expect(cartRes.status).to.eq(201);
-            cartId = cartRes.body.id;
+                expect(productsRes.status).to.eq(200);
+                productId = productsRes.body.data[0].id;
 
-            // 4) Add item to cart
-            return cy.request({
-                method: 'POST',
-                url: `http://localhost:3001/api/carts/${cartId}`,
-                body: {
-                    product_id: productId,
-                    quantity: 1
-                }
-            });
-        }).then(() => {
+                return cy.request({
+                    method: 'POST',
+                    url: 'http://localhost:3001/api/carts'
+                });
 
-            // 5) Place order
-            return cy.request({
-                method: 'POST',
-                url: 'http://localhost:3001/api/invoices',
-                headers: {
-                    Authorization: `Bearer ${token}`
-                },
-                body: {
-                    cart_id: "7481dc08-0eee-4a73-acf7-2c1d09524e29",
-                    billing_address: "vila",
-                    billing_first_name: "Farzaneh",
-                    billing_last_name: "Aghaee",
-                    billing_city: "Tehran",
-                    billing_postal_code: "1234567890",
-                    payment_details: {
-                        method: "online",
-                        card_last4: "10000"
+            }).then((cartRes) => {
+
+                expect(cartRes.status).to.eq(201);
+                cartId = cartRes.body.id;
+
+                return cy.request({
+                    method: 'POST',
+                    url: `http://localhost:3001/api/carts/${cartId}`,
+                    body: {
+                        product_id: productId,
+                        quantity: 1
                     }
-                }
+                });
+
+            }).then(() => {
+
+                return cy.request({
+                    method: 'POST',
+                    url: 'http://localhost:3001/api/invoices',
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: {
+                        cart_id: cartId,
+                        billing_address: "vila",
+                        billing_first_name: "Farzaneh",
+                        billing_last_name: "Aghaee",
+                        billing_city: "Tehran",
+                        billing_postal_code: "1234567890",
+                        payment_details: {
+                            method: "online",
+                            card_last4: "10000"
+                        }
+                    }
+                });
+
+            }).then((invoiceRes) => {
+
+                expect(invoiceRes.status).to.eq(201);
+                expect(invoiceRes.body).to.have.property('id');
+                expect(invoiceRes.body.status)
+                    .to.eq('AWAITING_FULFILLMENT');
+
             });
-        }).then((invoiceRes) => {
-            expect(invoiceRes.status).to.eq(201);
-            expect(invoiceRes.body).to.have.property('id');
-            cy.log(invoiceRes.body.id);
-            expect(invoiceRes.body).to.have.property('status', 'AWAITING_FULFILLMENT');
 
         });
+
     });
 
     it('tamrin26', () => {
-        //should add a product to favorites and verify it
-        let token;
+
         let productId;
 
-        // 1) Login
-        cy.request({
-            method: 'POST',
-            url: 'http://localhost:3001/api/users/login',
-            body: {
-                email: 'customer3@automationcamp.org',
-                password: 'pass123'
-            }
-        }).then((loginRes) => {
-            expect(loginRes.status).to.eq(200);
-            token = loginRes.body.access_token;
+        cy.loginViaApi('customer3@automationcamp.org', 'pass123');
 
-            // 2) Get a product
-            return cy.request('http://localhost:3001/api/products');
-        }).then((productsRes) => {
-            expect(productsRes.status).to.eq(200);
-            productId = productsRes.body.data[0].id;
+        cy.get('@authToken').then((token) => {
 
-            // --- پیش‌نیاز: پاکسازی ---
-            // ابتدا لیست علاقه‌مندی‌ها را می‌گیریم تا ببینیم آیا محصول وجود دارد یا خیر
-            return cy.request({
+            cy.request({
                 method: 'GET',
-                url: 'http://localhost:3001/api/favorites',
-                headers: { Authorization: `Bearer ${token}` }
-            });
-        }).then((listRes) => {
-            const existing = listRes.body.find(item => item.product_id === productId);
+                url: 'http://localhost:3001/api/products'
+            }).then((productsRes) => {
 
-            // اگر وجود داشت، حذفش کن تا تست تکراری نشود (409 نگیریم)
-            if (existing) {
+                expect(productsRes.status).to.eq(200);
+                productId = productsRes.body.data[0].id;
+
                 return cy.request({
-                    method: 'DELETE',
-                    url: `http://localhost:3001/api/favorites/${existing.id}`,
-                    headers: { Authorization: `Bearer ${token}` }
+                    method: 'GET',
+                    url: 'http://localhost:3001/api/favorites',
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
                 });
-            }
-        }).then(() => {
-            // 3) Add to favorites 
-            return cy.request({
-                method: 'POST',
-                url: 'http://localhost:3001/api/favorites',
-                headers: { Authorization: `Bearer ${token}` },
-                body: { product_id: productId }
-            });
-        }).then((favRes) => {
-            // بررسی موفقیت‌آمیز بودن عملیات (200 یا 201)
-            expect(favRes.status).to.be.oneOf([200, 201]);
 
-            // 4) Verify favorites
-            return cy.request({
-                method: 'GET',
-                url: 'http://localhost:3001/api/favorites',
-                headers: { Authorization: `Bearer ${token}` }
+            }).then((listRes) => {
+
+                const existing = listRes.body.find(
+                    item => item.product_id === productId
+                );
+
+                if (existing) {
+                    return cy.request({
+                        method: 'DELETE',
+                        url: `http://localhost:3001/api/favorites/${existing.id}`,
+                        headers: {
+                            Authorization: `Bearer ${token}`
+                        }
+                    });
+                }
+
+            }).then(() => {
+
+                return cy.request({
+                    method: 'POST',
+                    url: 'http://localhost:3001/api/favorites',
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: {
+                        product_id: productId
+                    }
+                });
+
+            }).then((favRes) => {
+
+                expect(favRes.status).to.be.oneOf([200, 201]);
+
+                return cy.request({
+                    method: 'GET',
+                    url: 'http://localhost:3001/api/favorites',
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+
+            }).then((listRes) => {
+
+                const found = listRes.body.find(
+                    item => item.product_id === productId
+                );
+
+                expect(listRes.status).to.eq(200);
+                expect(found, 'Product should be in favorites').to.exist;
+
             });
-        }).then((listRes) => {
-            expect(listRes.status).to.eq(200);
-            // بررسی اینکه آیا محصول در لیست وجود دارد
-            const found = listRes.body.find(item => item.product_id === productId);
-            expect(found, 'Product should be in favorites list').to.exist;
+
         });
+
     });
 
     it('tamrin27', () => {
-        //returns unauthorized when no token is provided
+
         cy.request({
             method: 'GET',
             url: 'http://localhost:3001/api/users/me',
